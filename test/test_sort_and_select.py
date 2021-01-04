@@ -112,6 +112,7 @@ class TestSortAndSelect(TestCase):
         torch.sort(x, out=(res2val, res2ind), descending=True)
         self.assertIsOrdered('descending', x, res2val, res2ind,
                              'random with NaNs')
+
     def test_stable_sort(self, device):
         # no stable sort for CUDA yet
         if device == "cuda":
