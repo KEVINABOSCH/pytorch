@@ -57,6 +57,18 @@ static IValue Table(
   return Tup(std::move(ivalue_entries));
 }
 
+std::string getSourceRangeTrace(
+    Node* node,
+    const std::string& root_scope_string) {
+  std::string source_range_trace;
+  if (node->callstack()) {
+    auto callstack_ptr = *(node->callstack());
+    source_range_trace = callstack_ptr->source_range_trace();
+    std::cout << source_range_trace << std::endl;
+  }
+  return source_range_trace;
+}
+
 std::string getModulePath(Node* node, const std::string& root_scope_string) {
   constexpr size_t kFunction = 0;
   constexpr size_t kModuleInstanceInfo = 2;
@@ -97,6 +109,11 @@ std::string getModulePath(Node* node, const std::string& root_scope_string) {
   }
 }
 
+std::string getDebugInfo(Node* node, const std::string& root_scope_string) {
+  return getModulePath(node, root_scope_string) + "{" +
+      getSourceRangeTrace(node, root_scope_string) + "}";
+}
+
 std::string getModuleTypeName(const Module& module, const std::string& prefix) {
   std::string moduleType = module.type()->str();
   size_t lastDotIndex = moduleType.rfind('.');
@@ -128,7 +145,9 @@ std::pair<IValue, c10::optional<IValue>> getFunctionTuple(
       opnames.emplace_back(node->schema().operator_name());
       if (save_mobile_debug_info) {
         std::string root_scope_string = getModuleTypeName(module, "top");
-        op_module_paths.emplace_back(getModulePath(node, root_scope_string));
+        //        op_module_paths.emplace_back(getModulePath(node,
+        //        root_scope_string));
+        op_module_paths.emplace_back(getDebugInfo(node, root_scope_string));
       }
     }
     // CALL nodes at this point represent built-in (i.e. non-Graph)
@@ -473,9 +492,13 @@ class ScriptModuleSerializer {
     elements.emplace_back(
         static_cast<int64_t>(caffe2::serialize::kProducedBytecodeVersion));
     c10::optional<std::vector<c10::IValue>> debug_info_elements;
+    c10::optional<std::vector<c10::IValue>> source_range_elements;
     if (save_mobile_debug_info) {
       debug_info_elements = std::vector<c10::IValue>();
       debug_info_elements->emplace_back(
+          static_cast<int64_t>(caffe2::serialize::kProducedBytecodeVersion));
+      source_range_elements = std::vector<c10::IValue>();
+      source_range_elements->emplace_back(
           static_cast<int64_t>(caffe2::serialize::kProducedBytecodeVersion));
     }
 
@@ -486,6 +509,7 @@ class ScriptModuleSerializer {
     if (save_mobile_debug_info) {
       auto debug_info_telements = Tup(std::move(debug_info_elements.value()));
       writeArchive("mobile_debug", debug_info_telements);
+      writeArchive("mobile_source_range", debug_info_telements);
     }
   }
 
